@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Search Pro - Advanced Flight Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .compact-card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        .flight-item {
+            transition: all 0.2s ease;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .flight-item:hover {
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+        .flight-item.selected {
+            border-color: #3b82f6;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+        .price-badge {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+        .airline-badge {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .duration-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .compact-input {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+        }
+        .compact-button {
+            font-size: 0.875rem;
+            padding: 0.5rem 1rem;
+        }
+        .text-xs-compact {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+        .text-sm-compact {
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+        }
+        .loading-spinner {
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <div x-data="flightSearchApp()" x-init="init()" class="container mx-auto px-4 py-4 max-w-7xl">
+        <!-- Compact Header -->
+        <div class="glass-card rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <i class="fas fa-plane text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">Flight Search Pro</h1>
+                        <p class="text-sm text-gray-600">Advanced Flight Finder with Price Tracking</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="bg-green-100 px-2 py-1 rounded-full">
+                        <span class="text-green-800 text-xs font-medium">
+                            <i class="fas fa-circle text-green-500 mr-1 text-xs"></i>
+                            API Connected
+                        </span>
+                    </div>
+                    <button @click="showPriceHistory = !showPriceHistory" 
+                            class="compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-chart-line mr-1"></i>Price History
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compact Search Form -->
+        <div class="glass-card rounded-xl p-4 mb-4">
+            <div class="grid grid-cols-12 gap-3 items-end">
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">From</label>
+                    <input x-model="searchForm.origin" type="text" placeholder="JFK" 
+                           class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">To</label>
+                    <input x-model="searchForm.destination" type="text" placeholder="LAX" 
+                           class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Departure</label>
+                    <input x-model="searchForm.departure_date" type="date" 
+                           class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Return</label>
+                    <input x-model="searchForm.return_date" type="date" 
+                           class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Adults</label>
+                    <input x-model.number="searchForm.adults" type="number" min="1" max="9" 
+                           class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Children</label>
+                    <input x-model.number="searchForm.children" type="number" min="0" max="9" 
+                           class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="col-span-1">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Max Stops</label>
+                    <select x-model.number="searchForm.max_stops" 
+                            class="w-full compact-input border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Any (All Results)</option>
+                        <option value="0">Non-stop Only</option>
+                        <option value="1">Max 1 Stop</option>
+                        <option value="2">Max 2 Stops</option>
+                        <option value="3">Max 3+ Stops</option>
+                    </select>
+                </div>
+                <div class="col-span-1 flex items-end">
+                    <button @click="searchFlights()" :disabled="isLoading"
+                            class="w-full compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <i x-show="!isLoading" class="fas fa-search mr-1"></i>
+                        <div x-show="isLoading" class="loading-spinner mx-auto"></div>
+                        <span x-text="isLoading ? 'Searching...' : 'Search Flights'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compact Cost Breakdown -->
+        <div class="compact-card rounded-lg p-3 mb-4">
+            <div class="grid grid-cols-4 gap-3 text-xs-compact">
+                <div class="text-green-700">
+                    <span class="font-medium">✓ Included:</span>
+                    <div class="mt-1">• Base fare • Taxes & fees</div>
+                </div>
+                <div class="text-red-700">
+                    <span class="font-medium">✗ Not Included:</span>
+                    <div class="mt-1">• Baggage fees • Seat selection</div>
+                </div>
+                <div class="text-blue-700">
+                    <span class="font-medium">ℹ Additional:</span>
+                    <div class="mt-1">• Check policies • Verify limits</div>
+                </div>
+                <div class="text-purple-700">
+                    <span class="font-medium">📊 Price Tracking:</span>
+                    <div class="mt-1">• Historical data • Price alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stops Filter Information -->
+        <div x-show="searchForm.max_stops !== ''" class="compact-card rounded-lg p-3 mb-4 bg-blue-50 border border-blue-200">
+            <div class="flex items-center text-xs text-blue-800">
+                <i class="fas fa-info-circle mr-2"></i>
+                <span class="font-medium">Stops Filter Active:</span>
+                <span x-text="searchForm.max_stops === 0 ? 'Showing only non-stop flights' : `Showing flights with ${searchForm.max_stops} stop${searchForm.max_stops > 1 ? 's' : ''} or fewer`" class="ml-1"></span>
+                <span class="ml-2 text-blue-600">• Searches up to 250 flights for best results</span>
+            </div>
+        </div>
+
+        <!-- Main Content Area - Fixed Height for 1080p -->
+        <div x-show="!isLoading" class="grid grid-cols-3 gap-4 mb-4 h-[320px]">
+            <!-- Round-Trip Flights -->
+            <div class="compact-card rounded-lg p-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-plane mr-2 text-purple-600"></i>
+                        Round-Trip Flights
+                        <span class="text-xs text-gray-500 ml-1">(<span x-text="searchForm.origin"></span> ↔ <span x-text="searchForm.destination"></span>)</span>
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <select x-model="outboundSortBy" @change="sortOutboundFlights()" class="text-xs border border-gray-300 rounded px-2 py-1">
+                            <option value="price">Price</option>
+                            <option value="departure_time">Departure</option>
+                            <option value="duration">Duration</option>
+                            <option value="stops">Stops</option>
+                            <option value="airline_name">Airline</option>
+                        </select>
+                        <button @click="toggleOutboundSortDirection()" class="text-xs text-gray-600 hover:text-gray-800">
+                            <i :class="outboundSortDirection === 'asc' ? 'fas fa-sort-amount-up' : 'fas fa-sort-amount-down'"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="space-y-1 h-[250px] overflow-y-auto">
+                    <template x-for="flight in roundTripFlights">
+                        <div @click.stop="selectRoundTripFlight(flight)" 
+                             @dblclick="showFlightDetailsModal(flight)"
+                             class="flight-item p-1 rounded cursor-pointer"
+                             :class="isRoundTripSelected(flight) ? 'selected' : ''">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 border-2 rounded-full"
+                                         :class="isRoundTripSelected(flight) ? 'border-purple-500 bg-purple-500' : 'border-gray-300'"></div>
+                                    <div>
+                                        <div class="font-medium text-sm text-gray-800" x-text="flight.airline_name"></div>
+                                        <div class="text-xs text-gray-600" x-text="flight.departure_time + ' - ' + flight.arrival_time"></div>
+                                        <div class="text-xs text-purple-600 font-medium">Complete Round-Trip</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-sm text-purple-600" x-text="'$' + flight.price_total.toLocaleString()"></div>
+                                    <div class="text-xs text-gray-500" x-text="flight.stops === 0 ? 'Non-stop' : flight.stops + ' stop(s)'"></div>
+                                    <div class="text-xs text-purple-500" x-text="'$' + (flight.price_total / searchForm.adults).toFixed(2) + ' per person'"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="roundTripFlights.length === 0" class="text-center py-8 text-gray-500">
+                        <i class="fas fa-search text-3xl mb-2"></i>
+                        <p class="text-sm">Ready to Search</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Outbound One-Way Flights -->
+            <div class="compact-card rounded-lg p-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-plane-departure mr-2 text-blue-600"></i>
+                        Outbound Flights
+                        <span class="text-xs text-gray-500 ml-1">(<span x-text="searchForm.origin"></span> → <span x-text="searchForm.destination"></span>)</span>
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <select x-model="outboundOneWaySortBy" @change="sortOutboundOneWayFlights()" class="text-xs border border-gray-300 rounded px-2 py-1">
+                            <option value="price">Price</option>
+                            <option value="departure_time">Departure</option>
+                            <option value="duration">Duration</option>
+                            <option value="stops">Stops</option>
+                            <option value="airline_name">Airline</option>
+                        </select>
+                        <button @click="toggleOutboundOneWaySortDirection()" class="text-xs text-gray-600 hover:text-gray-800">
+                            <i :class="outboundOneWaySortDirection === 'asc' ? 'fas fa-sort-amount-up' : 'fas fa-sort-amount-down'"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="space-y-1 h-[250px] overflow-y-auto">
+                    <template x-for="(flight, index) in outboundOneWayFlights">
+                        <div @click.stop="selectOutboundOneWayFlight(flight)" 
+                             @dblclick="showFlightDetailsModal(flight)"
+                             class="flight-item p-1 rounded cursor-pointer"
+                             :class="isOutboundOneWaySelected(flight) ? 'selected' : ''">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 border-2 rounded-full"
+                                         :class="isOutboundOneWaySelected(flight) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'"></div>
+                                    <div>
+                                        <div class="font-medium text-sm text-gray-800" x-text="flight.airline_name"></div>
+                                        <div class="text-xs text-gray-600" x-text="flight.departure_time + ' - ' + flight.arrival_time"></div>
+                                        <div class="text-xs text-blue-600 font-medium">One-Way Outbound</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-blue-600 text-sm" x-text="'$' + flight.price_total.toLocaleString()"></div>
+                                    <div class="text-xs text-gray-500" x-text="flight.stops === 0 ? 'Non-stop' : flight.stops + ' stop(s)'"></div>
+                                    <div class="text-xs text-blue-500" x-text="'$' + (flight.price_total / searchForm.adults).toFixed(2) + ' per person'"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="outboundOneWayFlights.length === 0" class="text-center py-8 text-gray-500">
+                        <i class="fas fa-search text-3xl mb-2"></i>
+                        <p class="text-sm">Ready to Search</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Return One-Way Flights -->
+            <div class="compact-card rounded-lg p-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-plane-arrival mr-2 text-green-600"></i>
+                        Return Flights
+                        <span class="text-xs text-gray-500 ml-1">(<span x-text="searchForm.destination"></span> → <span x-text="searchForm.origin"></span>)</span>
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <select x-model="returnOneWaySortBy" @change="sortReturnOneWayFlights()" class="text-xs border border-gray-300 rounded px-2 py-1">
+                            <option value="price">Price</option>
+                            <option value="departure_time">Departure</option>
+                            <option value="duration">Duration</option>
+                            <option value="stops">Stops</option>
+                            <option value="airline_name">Airline</option>
+                        </select>
+                        <button @click="toggleReturnOneWaySortDirection()" class="text-xs text-gray-600 hover:text-gray-800">
+                            <i :class="returnOneWaySortDirection === 'asc' ? 'fas fa-sort-amount-up' : 'fas fa-sort-amount-down'"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="space-y-1 h-[250px] overflow-y-auto">
+                    <template x-for="(flight, index) in returnOneWayFlights">
+                        <div @click.stop="selectReturnOneWayFlight(flight)" 
+                             @dblclick="showFlightDetailsModal(flight)"
+                             class="flight-item p-1 rounded cursor-pointer"
+                             :class="isReturnOneWaySelected(flight) ? 'selected' : ''">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 border-2 rounded-full"
+                                         :class="isReturnOneWaySelected(flight) ? 'border-green-500 bg-green-500' : 'border-gray-300'"></div>
+                                    <div>
+                                        <div class="font-medium text-sm text-gray-800" x-text="flight.airline_name"></div>
+                                        <div class="text-xs text-gray-600" x-text="flight.departure_time + ' - ' + flight.arrival_time"></div>
+                                        <div class="text-xs text-green-600 font-medium">One-Way Return</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-bold text-green-600 text-sm" x-text="'$' + flight.price_total.toLocaleString()"></div>
+                                    <div class="text-xs text-gray-500" x-text="flight.stops === 0 ? 'Non-stop' : flight.stops + ' stop(s)'"></div>
+                                    <div class="text-xs text-green-500" x-text="'$' + (flight.price_total / searchForm.adults).toFixed(2) + ' per person'"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="returnOneWayFlights.length === 0" class="text-center py-8 text-gray-500">
+                        <i class="fas fa-search text-3xl mb-2"></i>
+                        <p class="text-sm">Ready to Search</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Summary - Compact -->
+        <div x-show="!isLoading && (roundTripFlights.length > 0 || outboundOneWayFlights.length > 0 || returnOneWayFlights.length > 0)" class="mb-4">
+            <div class="glass-card rounded-xl p-3">
+                <h3 class="text-sm font-bold text-gray-800 mb-2 flex items-center">
+                    <i class="fas fa-balance-scale mr-2 text-indigo-600"></i>
+                    Flight Comparison Summary
+                </h3>
+                
+                <!-- Comparison Options -->
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    <!-- Round-Trip Option -->
+                    <div class="bg-white rounded-lg p-2 border-2" :class="selectedRoundTripFlight ? 'border-purple-500 bg-purple-50' : 'border-gray-200'">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-purple-600">Round-Trip Option</span>
+                            <i class="fas fa-plane text-purple-600"></i>
+                        </div>
+                        <div x-show="selectedRoundTripFlight" class="space-y-1">
+                            <div class="text-xs text-gray-600" x-text="selectedRoundTripFlight?.airline_name"></div>
+                            <div class="text-lg font-bold text-purple-600" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></div>
+                            <div class="text-xs text-gray-500" x-text="selectedRoundTripFlight?.stops === 0 ? 'Non-stop' : selectedRoundTripFlight?.stops + ' stop(s)'"></div>
+                        </div>
+                        <div x-show="!selectedRoundTripFlight" class="text-xs text-gray-500">
+                            Select a round-trip flight
+                        </div>
+                    </div>
+
+                    <!-- One-Way Package Option -->
+                    <div class="bg-white rounded-lg p-2 border-2" :class="(selectedOutboundOneWayFlight && selectedReturnOneWayFlight) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-blue-600">One-Way Package</span>
+                            <i class="fas fa-exchange-alt text-blue-600"></i>
+                        </div>
+                        <div x-show="selectedOutboundOneWayFlight && selectedReturnOneWayFlight" class="space-y-1">
+                            <div class="text-xs text-gray-600">
+                                <span x-text="selectedOutboundOneWayFlight?.airline_name"></span> + 
+                                <span x-text="selectedReturnOneWayFlight?.airline_name"></span>
+                            </div>
+                            <div class="text-lg font-bold text-blue-600" x-text="'$' + (selectedOutboundOneWayFlight?.price_total + selectedReturnOneWayFlight?.price_total).toLocaleString()"></div>
+                            <div class="text-xs text-gray-500">
+                                <span x-text="selectedOutboundOneWayFlight?.stops === 0 ? 'Non-stop' : selectedOutboundOneWayFlight?.stops + ' stop(s)'"></span> + 
+                                <span x-text="selectedReturnOneWayFlight?.stops === 0 ? 'Non-stop' : selectedReturnOneWayFlight?.stops + ' stop(s)'"></span>
+                            </div>
+                        </div>
+                        <div x-show="!selectedOutboundOneWayFlight || !selectedReturnOneWayFlight" class="text-xs text-gray-500">
+                            Select outbound + return flights
+                        </div>
+                    </div>
+
+                    <!-- Best Option -->
+                    <div class="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg p-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium">Best Option</span>
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div x-show="bestOption" class="space-y-1">
+                            <div class="text-xs opacity-90" x-text="bestOption?.type"></div>
+                            <div class="text-lg font-bold" x-text="'$' + bestOption?.totalPrice.toLocaleString()"></div>
+                            <div class="text-xs opacity-75" x-text="'Saves $' + bestOption?.savings.toLocaleString()"></div>
+                        </div>
+                        <div x-show="!bestOption" class="text-xs opacity-75">
+                            Select flights to compare
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Criteria -->
+                <div class="flex items-center space-x-4 mb-4">
+                    <span class="text-sm font-medium text-gray-700">Compare by:</span>
+                    <select x-model="comparisonCriteria" @change="updateBestOption()" class="text-sm border border-gray-300 rounded px-3 py-1">
+                        <option value="price">Lowest Price</option>
+                        <option value="duration">Shortest Duration</option>
+                        <option value="stops">Fewest Stops</option>
+                        <option value="value">Best Value</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div x-show="bestOption" class="flex space-x-2">
+                    <button @click="bookBestOption()" class="compact-button bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                        <i class="fas fa-shopping-cart mr-1"></i>Book Best Option
+                    </button>
+                    <button @click="saveBestOption()" class="compact-button bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-bookmark mr-1"></i>Save Comparison
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Package Summary - Fixed at Bottom -->
+        <div class="compact-card rounded-lg p-3 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 h-[140px]">
+                <h3 class="text-sm font-bold text-gray-800 mb-2 flex items-center">
+                    <i class="fas fa-shopping-cart mr-2 text-purple-600"></i>
+                    Package Summary
+                </h3>
+                
+                <!-- No Selection State -->
+                <div x-show="!selectedRoundTripFlight && (!selectedOutboundOneWayFlight || !selectedReturnOneWayFlight)" class="text-center py-4 text-gray-500">
+                    <i class="fas fa-mouse-pointer text-xl mb-2"></i>
+                    <p class="text-xs">Select flights to see package details</p>
+                </div>
+
+                <!-- Round-Trip Package Summary -->
+                <div x-show="selectedRoundTripFlight && searchForm.return_date" class="space-y-2 h-[100px] overflow-y-auto">
+                    <!-- Selected Round-Trip Flight -->
+                    <div class="bg-white rounded-lg p-2 border border-purple-200 cursor-pointer hover:border-purple-400 transition-colors"
+                         @click="showFlightDetailsModal(selectedRoundTripFlight)">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-purple-600">Selected Round-Trip Flight</span>
+                            <div class="flex space-x-2">
+                                <button @click.stop="showFlightDetailsModal(selectedRoundTripFlight)" class="text-purple-500 hover:text-purple-700 text-sm" title="View Details">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                                <button @click.stop="selectedRoundTripFlight = null" class="text-gray-400 hover:text-gray-600 text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-sm space-y-1">
+                            <div class="font-medium" x-text="selectedRoundTripFlight?.airline_name"></div>
+                            <div class="text-gray-600" x-text="selectedRoundTripFlight?.departure_time + ' - ' + selectedRoundTripFlight?.arrival_time"></div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-purple-600 font-bold text-lg" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></span>
+                                <span class="text-gray-500 text-xs" x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + ' per person'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Cost -->
+                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg p-3">
+                        <div class="text-center">
+                            <div class="text-xs opacity-90">Complete Round-Trip Cost</div>
+                            <div class="text-xl font-bold" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></div>
+                            <div class="text-xs opacity-75 mt-1">
+                                <span x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + ' per person × ' + searchForm.adults + ' passenger' + (searchForm.adults > 1 ? 's' : '')"></span>
+                            </div>
+                            <div class="text-xs opacity-60 mt-1">
+                                <span>Includes outbound + return flights</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="space-y-2">
+                        <button @click="showFlightDetailsModal(selectedRoundTripFlight)" 
+                                class="w-full compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-info-circle mr-1"></i>View Flight Details
+                        </button>
+                        <button @click="bookFlight(selectedRoundTripFlight)" 
+                                class="w-full compact-button bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-shopping-cart mr-1"></i>Book Flight
+                        </button>
+                        <button @click="saveFlight(selectedRoundTripFlight)" 
+                                class="w-full compact-button bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-bookmark mr-1"></i>Save Flight
+                        </button>
+                    </div>
+                </div>
+
+                <!-- One-Way Package Summary -->
+                <div x-show="selectedOutboundOneWayFlight && selectedReturnOneWayFlight && !selectedRoundTripFlight" class="space-y-2 h-[100px] overflow-y-auto">
+                    <!-- Selected Outbound Flight -->
+                    <div class="bg-white rounded-lg p-2 border border-blue-200 cursor-pointer hover:border-blue-400 transition-colors"
+                         @click="showFlightDetailsModal(selectedOutboundOneWayFlight)">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-blue-600">Outbound Flight</span>
+                            <div class="flex space-x-2">
+                                <button @click.stop="showFlightDetailsModal(selectedOutboundOneWayFlight)" class="text-blue-500 hover:text-blue-700 text-sm" title="View Details">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                                <button @click.stop="selectedOutboundOneWayFlight = null" class="text-gray-400 hover:text-gray-600 text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-sm space-y-1">
+                            <div class="font-medium" x-text="selectedOutboundOneWayFlight?.airline_name"></div>
+                            <div class="text-gray-600" x-text="selectedOutboundOneWayFlight?.departure_time + ' - ' + selectedOutboundOneWayFlight?.arrival_time"></div>
+                            <div class="text-blue-600 font-bold" x-text="'$' + selectedOutboundOneWayFlight?.price_total.toLocaleString()"></div>
+                        </div>
+                    </div>
+
+                    <!-- Selected Return Flight -->
+                    <div class="bg-white rounded-lg p-2 border border-green-200 cursor-pointer hover:border-green-400 transition-colors"
+                         @click="showFlightDetailsModal(selectedReturnOneWayFlight)">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-green-600">Return Flight</span>
+                            <div class="flex space-x-2">
+                                <button @click.stop="showFlightDetailsModal(selectedReturnOneWayFlight)" class="text-green-500 hover:text-green-700 text-sm" title="View Details">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                                <button @click.stop="selectedReturnOneWayFlight = null" class="text-gray-400 hover:text-gray-600 text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-sm space-y-1">
+                            <div class="font-medium" x-text="selectedReturnOneWayFlight?.airline_name"></div>
+                            <div class="text-gray-600" x-text="selectedReturnOneWayFlight?.departure_time + ' - ' + selectedReturnOneWayFlight?.arrival_time"></div>
+                            <div class="text-green-600 font-bold" x-text="'$' + selectedReturnOneWayFlight?.price_total.toLocaleString()"></div>
+                        </div>
+                    </div>
+
+                    <!-- Package Total -->
+                    <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-2 border border-blue-200">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-700">Package Total:</span>
+                            <span class="text-lg font-bold text-purple-600" x-text="'$' + ((selectedOutboundOneWayFlight?.price_total || 0) + (selectedReturnOneWayFlight?.price_total || 0)).toLocaleString()"></span>
+                        </div>
+                        <div class="text-xs text-gray-500 text-right" x-text="'$' + (((selectedOutboundOneWayFlight?.price_total || 0) + (selectedReturnOneWayFlight?.price_total || 0)) / searchForm.adults).toFixed(2) + ' per person'"></div>
+                    </div>
+
+                    <!-- Total Cost -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg p-3">
+                        <div class="text-center">
+                            <div class="text-xs opacity-90">One-Way Flight Cost</div>
+                            <div class="text-xl font-bold" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></div>
+                            <div class="text-xs opacity-75 mt-1">
+                                <span x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + ' per person × ' + searchForm.adults + ' passenger' + (searchForm.adults > 1 ? 's' : '')"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="space-y-2">
+                        <button @click="showFlightDetailsModal(selectedRoundTripFlight)" 
+                                class="w-full compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-info-circle mr-1"></i>View Flight Details
+                        </button>
+                        <button @click="bookFlight(selectedRoundTripFlight)" 
+                                class="w-full compact-button bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-shopping-cart mr-1"></i>Book Flight
+                        </button>
+                        <button @click="saveFlight(selectedRoundTripFlight)" 
+                                class="w-full compact-button bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-bookmark mr-1"></i>Save Flight
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="isLoading" class="glass-card rounded-xl p-8 text-center">
+            <div class="loading-spinner mx-auto mb-4 w-8 h-8"></div>
+            <p class="text-gray-600">Searching for flights...</p>
+        </div>
+
+        <!-- Price History Modal -->
+        <div x-show="showPriceHistory === true" x-transition class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" x-cloak>
+            <div class="glass-card rounded-xl p-4 max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-lg font-bold text-gray-800">
+                        <i class="fas fa-chart-line mr-2"></i>Price History & Tracking
+                    </h3>
+                    <button @click="showPriceHistory = false" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-3">
+                    <p class="text-xs text-gray-600 mb-3">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        All flight searches are automatically tracked and stored for price trend analysis.
+                    </p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-2 text-sm">Recent Searches</h4>
+                            <div class="space-y-2 max-h-48 overflow-y-auto">
+                                <template x-for="(search, index) in searchHistory" :key="index">
+                                    <div class="bg-white p-2 rounded-lg shadow-sm border border-gray-200">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-medium text-blue-600 text-xs" x-text="search.route"></span>
+                                            <span class="text-xs text-gray-500" x-text="search.date"></span>
+                                        </div>
+                                        <div class="text-xs text-gray-600 mb-1" x-text="search.results + ' options found'"></div>
+                                        <div class="text-xs text-gray-500">
+                                            <span x-text="search.criteria.adults + ' adults'"></span>
+                                            <span x-show="search.criteria.children > 0" x-text="', ' + search.criteria.children + ' children'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="searchHistory.length === 0" class="text-center py-4 text-gray-500">
+                                    <i class="fas fa-history text-lg mb-2"></i>
+                                    <p class="text-xs">No search history yet</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-2 text-sm">Price Tracking Data</h4>
+                            <div class="space-y-2">
+                                <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="font-medium text-gray-700 text-xs">Routes Tracked</span>
+                                        <span class="text-xs text-blue-600 font-bold" x-text="priceData.size"></span>
+                                    </div>
+                                    <div class="text-xs text-gray-500">Total routes with price data</div>
+                                </div>
+                                
+                                <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="font-medium text-gray-700 text-xs">Total Searches</span>
+                                        <span class="text-xs text-green-600 font-bold" x-text="searchHistory.length"></span>
+                                    </div>
+                                    <div class="text-xs text-gray-500">Searches performed this session</div>
+                                </div>
+                                
+                                <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="font-medium text-gray-700 text-xs">Data Retention</span>
+                                        <span class="text-xs text-purple-600 font-bold">30 days</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500">Price history stored locally</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flight Details Modal -->
+        <div x-show="showFlightDetails === true && selectedRoundTripFlightDetails !== null && selectedRoundTripFlightDetails !== undefined" x-transition class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" x-cloak>
+            <div class="glass-card rounded-xl p-4 max-w-4xl w-full mx-4 max-h-[85vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">
+                        <i class="fas fa-plane mr-2"></i>Flight Details
+                    </h3>
+                    <button @click="showFlightDetails = false" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                
+                <div x-show="selectedRoundTripFlightDetails" class="space-y-4">
+                    <!-- Flight Header -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="bg-blue-600 p-2 rounded-lg">
+                                    <i class="fas fa-plane text-white text-lg" x-show="!selectedRoundTripFlightDetails?.isPackage"></i>
+                                    <i class="fas fa-layer-group text-white text-lg" x-show="selectedRoundTripFlightDetails?.isPackage"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-lg font-bold text-gray-800">
+                                        <span x-text="selectedRoundTripFlightDetails?.airline_code"></span>
+                                        <span x-show="!selectedRoundTripFlightDetails?.isPackage"> - <span x-text="selectedRoundTripFlightDetails?.airline_name"></span></span>
+                                        <span x-show="selectedRoundTripFlightDetails?.isPackage"> - <span x-text="selectedRoundTripFlightDetails?.airline_name"></span></span>
+                                    </h4>
+                                    <p class="text-gray-600 text-sm">
+                                        <span x-text="selectedRoundTripFlightDetails?.origin"></span> → 
+                                        <span x-text="selectedRoundTripFlightDetails?.destination"></span>
+                                        <span x-show="selectedRoundTripFlightDetails?.isPackage" class="text-purple-600 font-medium"> (Package)</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-green-600" x-text="'$' + selectedRoundTripFlightDetails?.price_total.toLocaleString()"></div>
+                                <div class="text-xs text-gray-500">
+                                    <span x-show="!selectedRoundTripFlightDetails?.isPackage">Total Price</span>
+                                    <span x-show="selectedRoundTripFlightDetails?.isPackage">Package Price</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flight Summary Cards -->
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                            <div class="text-center">
+                                <i class="fas fa-clock text-lg text-blue-600 mb-1"></i>
+                                <div class="font-bold text-gray-800 text-sm" x-text="selectedRoundTripFlightDetails?.duration"></div>
+                                <div class="text-xs text-gray-500">Total Duration</div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                            <div class="text-center">
+                                <i class="fas fa-exchange-alt text-lg text-orange-600 mb-1"></i>
+                                <div class="font-bold text-gray-800 text-sm" x-text="selectedRoundTripFlightDetails?.stops === 0 ? 'Non-stop' : selectedRoundTripFlightDetails?.stops + ' stop(s)'"></div>
+                                <div class="text-xs text-gray-500">Stops</div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                            <div class="text-center">
+                                <i class="fas fa-user-tie text-lg text-purple-600 mb-1"></i>
+                                <div class="font-bold text-gray-800 text-sm" x-text="selectedRoundTripFlightDetails?.cabin_class"></div>
+                                <div class="text-xs text-gray-500">Cabin Class</div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+                            <div class="text-center">
+                                <i class="fas fa-dollar-sign text-lg text-green-600 mb-1"></i>
+                                <div class="font-bold text-gray-800 text-sm" x-text="selectedRoundTripFlightDetails?.currency"></div>
+                                <div class="text-xs text-gray-500">Currency</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flight Segments -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Outbound Flight -->
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                            <h5 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-plane-departure mr-2 text-blue-600"></i>Outbound Flight
+                                <span class="text-xs font-normal text-gray-500 ml-1">
+                                    (<span x-text="selectedRoundTripFlightDetails?.origin"></span> → <span x-text="selectedRoundTripFlightDetails?.destination"></span>)
+                                </span>
+                            </h5>
+                            <div class="space-y-3">
+                                <template x-for="(segment, index) in selectedRoundTripFlightDetails?.outbound_segments" :key="index">
+                                    <div class="border-l-4 border-blue-500 pl-3 pb-3">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div>
+                                                <div class="font-bold text-sm" x-text="segment.airline_code + ' ' + segment.flight_number"></div>
+                                                <div class="text-xs text-gray-600" x-text="segment.aircraft"></div>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="font-medium text-xs" x-text="formatDuration(parseDuration(segment.duration))"></div>
+                                                <div class="text-xs text-gray-500">Duration</div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gray-50 rounded-lg p-2">
+                                            <div class="flex justify-between items-center mb-1">
+                                                <div class="text-center">
+                                                    <div class="font-bold text-sm" x-text="new Date(segment.departure_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></div>
+                                                    <div class="text-xs text-gray-600" x-text="new Date(segment.departure_time).toLocaleDateString()"></div>
+                                                    <div class="font-medium text-blue-600 text-xs" x-text="segment.departure_airport"></div>
+                                                </div>
+                                                <div class="flex-1 px-3">
+                                                    <div class="border-t-2 border-dashed border-gray-300 relative">
+                                                        <div class="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                                                            <i class="fas fa-plane text-gray-400 text-xs"></i>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-bold text-sm" x-text="new Date(segment.arrival_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></div>
+                                                    <div class="text-xs text-gray-600" x-text="new Date(segment.arrival_time).toLocaleDateString()"></div>
+                                                    <div class="font-medium text-green-600 text-xs" x-text="segment.arrival_airport"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Return Flight -->
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                            <h5 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-plane-arrival mr-2 text-green-600"></i>Return Flight
+                                <span class="text-xs font-normal text-gray-500 ml-1">
+                                    (<span x-text="selectedRoundTripFlightDetails?.destination"></span> → <span x-text="selectedRoundTripFlightDetails?.origin"></span>)
+                                </span>
+                            </h5>
+                            <div class="space-y-3">
+                                <template x-for="(segment, index) in selectedRoundTripFlightDetails?.return_segments" :key="index">
+                                    <div class="border-l-4 border-green-500 pl-3 pb-3">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div>
+                                                <div class="font-bold text-sm" x-text="segment.airline_code + ' ' + segment.flight_number"></div>
+                                                <div class="text-xs text-gray-600" x-text="segment.aircraft"></div>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="font-medium text-xs" x-text="formatDuration(parseDuration(segment.duration))"></div>
+                                                <div class="text-xs text-gray-500">Duration</div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gray-50 rounded-lg p-2">
+                                            <div class="flex justify-between items-center mb-1">
+                                                <div class="text-center">
+                                                    <div class="font-bold text-sm" x-text="new Date(segment.departure_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></div>
+                                                    <div class="text-xs text-gray-600" x-text="new Date(segment.departure_time).toLocaleDateString()"></div>
+                                                    <div class="font-medium text-blue-600 text-xs" x-text="segment.departure_airport"></div>
+                                                </div>
+                                                <div class="flex-1 px-3">
+                                                    <div class="border-t-2 border-dashed border-gray-300 relative">
+                                                        <div class="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                                                            <i class="fas fa-plane text-gray-400 text-xs"></i>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <div class="font-bold text-sm" x-text="new Date(segment.arrival_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></div>
+                                                    <div class="text-xs text-gray-600" x-text="new Date(segment.arrival_time).toLocaleDateString()"></div>
+                                                    <div class="font-medium text-green-600 text-xs" x-text="segment.arrival_airport"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-2">
+                        <button @click="showFlightDetails = false" 
+                                class="compact-button text-gray-600 hover:text-gray-800 transition-colors">
+                            Close
+                        </button>
+                        <button @click="bookFlight(selectedRoundTripFlightDetails)" 
+                                class="compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-external-link-alt mr-1"></i>Book This Flight
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function flightSearchApp() {
+            return {
+                isLoading: false,
+                flights: [],
+                roundTripFlights: [],
+                outboundOneWayFlights: [],
+                returnOneWayFlights: [],
+                searchForm: {
+                    origin: 'JFK',
+                    destination: 'LAX',
+                    departure_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    return_date: new Date(Date.now() + 37 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    adults: 2,
+                    children: 0,
+                    infants: 0,
+                    cabin_class: 'ECONOMY',
+                    max_stops: ''
+                },
+                sortBy: 'price',
+                sortDirection: 'asc',
+                outboundSortBy: 'price',
+                outboundSortDirection: 'asc',
+                returnSortBy: 'price',
+                returnSortDirection: 'asc',
+                outboundOneWaySortBy: 'price',
+                outboundOneWaySortDirection: 'asc',
+                returnOneWaySortBy: 'price',
+                returnOneWaySortDirection: 'asc',
+                showPriceHistory: false,
+                showFlightDetails: false,
+                showFlightHistoryModal: false,
+                selectedRoundTripFlightDetails: null,
+                selectedRoundTripFlightHistory: null,
+                selectedRoundTripFlight: null,
+                selectedRoundTripFlight: null,
+                selectedOutboundOneWayFlight: null,
+                selectedReturnOneWayFlight: null,
+                bestOption: null,
+                comparisonCriteria: 'price',
+                searchHistory: [],
+                priceData: new Map(),
+
+                async searchFlights() {
+                    this.isLoading = true;
+                    try {
+                        // Reset all flight arrays and selections
+                        this.roundTripFlights = [];
+                        this.outboundOneWayFlights = [];
+                        this.returnOneWayFlights = [];
+                        this.bestOption = null;
+                        this.selectedRoundTripFlight = null;
+                        this.selectedRoundTripFlight = null;
+                        this.selectedOutboundOneWayFlight = null;
+                        this.selectedReturnOneWayFlight = null;
+                        this.showFlightDetails = false;
+                        this.selectedRoundTripFlightDetails = null;
+                        this.showPriceHistory = false;
+                        this.showFlightHistoryModal = false;
+
+                        // Fetch round-trip flights if return date is provided
+                        if (this.searchForm.return_date) {
+                            const roundTripResponse = await fetch('/api/flights/search', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    ...this.searchForm,
+                                    max_stops: this.searchForm.max_stops && this.searchForm.max_stops !== '' ? parseInt(this.searchForm.max_stops) : null
+                                })
+                            });
+
+                            const roundTripData = await roundTripResponse.json();
+                            
+                            if (roundTripData.offers && roundTripData.offers.length > 0) {
+                                this.roundTripFlights = this.mapFlightOffers(roundTripData.offers);
+                            }
+
+                            // Fetch one-way outbound flights
+                            const outboundParams = {
+                                origin: this.searchForm.origin,
+                                destination: this.searchForm.destination,
+                                departure_date: this.searchForm.departure_date,
+                                adults: this.searchForm.adults,
+                                children: this.searchForm.children,
+                                infants: this.searchForm.infants,
+                                cabin_class: this.searchForm.cabin_class
+                            };
+                            if (this.searchForm.max_stops && this.searchForm.max_stops !== '') {
+                                outboundParams.max_stops = this.searchForm.max_stops;
+                            }
+                            const outboundResponse = await fetch(`/api/flights/search-oneway?` + new URLSearchParams(outboundParams));
+
+                            const outboundData = await outboundResponse.json();
+                            
+                            if (outboundData.offers && outboundData.offers.length > 0) {
+                                console.log('Outbound API response:', outboundData.offers.length, 'offers');
+                                this.outboundOneWayFlights = this.mapFlightOffers(outboundData.offers);
+                                console.log('Mapped outbound flights:', this.outboundOneWayFlights.length);
+                            }
+
+                            // Fetch one-way return flights
+                            const returnParams = {
+                                origin: this.searchForm.destination,
+                                destination: this.searchForm.origin,
+                                departure_date: this.searchForm.return_date,
+                                adults: this.searchForm.adults,
+                                children: this.searchForm.children,
+                                infants: this.searchForm.infants,
+                                cabin_class: this.searchForm.cabin_class
+                            };
+                            if (this.searchForm.max_stops && this.searchForm.max_stops !== '') {
+                                returnParams.max_stops = this.searchForm.max_stops;
+                            }
+                            const returnResponse = await fetch(`/api/flights/search-oneway?` + new URLSearchParams(returnParams));
+
+                            const returnData = await returnResponse.json();
+                            
+                            if (returnData.offers && returnData.offers.length > 0) {
+                                console.log('Return API response:', returnData.offers.length, 'offers');
+                                this.returnOneWayFlights = this.mapFlightOffers(returnData.offers);
+                                console.log('Mapped return flights:', this.returnOneWayFlights.length);
+                            }
+                        } else {
+                            // For one-way searches, just fetch outbound flights
+                            const outboundParams = {
+                                origin: this.searchForm.origin,
+                                destination: this.searchForm.destination,
+                                departure_date: this.searchForm.departure_date,
+                                adults: this.searchForm.adults,
+                                children: this.searchForm.children,
+                                infants: this.searchForm.infants,
+                                cabin_class: this.searchForm.cabin_class
+                            };
+                            if (this.searchForm.max_stops && this.searchForm.max_stops !== '') {
+                                outboundParams.max_stops = this.searchForm.max_stops;
+                            }
+                            const outboundResponse = await fetch(`/api/flights/search-oneway?` + new URLSearchParams(outboundParams));
+
+                            const outboundData = await outboundResponse.json();
+                            
+                            if (outboundData.offers && outboundData.offers.length > 0) {
+                                this.outboundOneWayFlights = this.mapFlightOffers(outboundData.offers);
+                            }
+                        }
+                        
+                        this.storeSearchHistory();
+                        this.storePriceData();
+                        this.updateBestOption();
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        alert('Search failed: ' + error.message);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                mapFlightOffers(offers) {
+                    return offers.map(offer => {
+                        try {
+                        const outbound = offer.outbound_segments[0];
+                        const return_seg = offer.return_segments && offer.return_segments.length > 0 ? offer.return_segments[0] : null;
+                        
+                        const airline_code = outbound.airline_code;
+                        const airline_name = this.getAirlineName(airline_code);
+                        
+                        const outbound_duration = this.parseDuration(outbound.duration);
+                        const return_duration = return_seg ? this.parseDuration(return_seg.duration) : 0;
+                        const total_duration = outbound_duration + return_duration;
+                        
+                        const final_outbound = offer.outbound_segments[offer.outbound_segments.length - 1];
+                        
+                        const outbound_stops = Math.max(0, offer.outbound_segments.length - 1);
+                        const return_stops = offer.return_segments && offer.return_segments.length > 0 ? Math.max(0, offer.return_segments.length - 1) : 0;
+                        const max_stops = Math.max(outbound_stops, return_stops);
+                        
+                        return {
+                            id: offer.id,
+                            airline_code: airline_code,
+                            airline_name: airline_name,
+                            price_total: parseFloat(offer.price_total),
+                            currency: offer.currency || 'USD',
+                            departure_time: outbound.departure_time,
+                            arrival_time: final_outbound.arrival_time,
+                            duration: this.formatDuration(total_duration),
+                            duration_minutes: total_duration,
+                            stops: max_stops,
+                            outbound_stops: outbound_stops,
+                            return_stops: return_stops,
+                            cabin_class: offer.cabin_class,
+                            booking_url: offer.booking_url,
+                            outbound_segments: offer.outbound_segments,
+                            return_segments: offer.return_segments,
+                            search_timestamp: new Date().toISOString()
+                        };
+                        } catch (error) {
+                            console.error('Error mapping flight offer:', error, offer);
+                            return null;
+                        }
+                    }).filter(offer => offer !== null);
+                },
+
+                formatDuration(minutes) {
+                    const hours = Math.floor(minutes / 60);
+                    const mins = minutes % 60;
+                    return `${hours}h ${mins}m`;
+                },
+
+                parseDuration(durationStr) {
+                    if (!durationStr) return 0;
+                    const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+                    if (!match) return 0;
+                    const hours = parseInt(match[1] || 0);
+                    const minutes = parseInt(match[2] || 0);
+                    return hours * 60 + minutes;
+                },
+
+                getAirlineName(code) {
+                    const airlines = {
+                        'AA': 'American Airlines',
+                        'UA': 'United Airlines', 
+                        'DL': 'Delta Air Lines',
+                        'B6': 'JetBlue Airways',
+                        'WN': 'Southwest Airlines',
+                        'NK': 'Spirit Airlines',
+                        'F9': 'Frontier Airlines',
+                        '6X': 'JSX Airlines',
+                        'AS': 'Alaska Airlines',
+                        'HA': 'Hawaiian Airlines',
+                        'VX': 'Virgin America'
+                    };
+                    return airlines[code] || code;
+                },
+
+                sortFlights(column) {
+                    if (column && column !== this.sortBy) {
+                        this.sortBy = column;
+                        this.sortDirection = 'asc';
+                    } else if (column === this.sortBy) {
+                        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                    }
+
+                    this.flights.sort((a, b) => {
+                        let aVal = a[this.sortBy];
+                        let bVal = b[this.sortBy];
+
+                        if (this.sortBy === 'price') {
+                            aVal = parseFloat(a.price_total);
+                            bVal = parseFloat(b.price_total);
+                        } else if (this.sortBy === 'duration') {
+                            aVal = a.total_duration_minutes || 0;
+                            bVal = b.total_duration_minutes || 0;
+                        } else if (this.sortBy === 'departure') {
+                            aVal = new Date(a.departure_time);
+                            bVal = new Date(b.departure_time);
+                        }
+
+                        if (this.sortDirection === 'asc') {
+                            return aVal > bVal ? 1 : -1;
+                        } else {
+                            return aVal < bVal ? 1 : -1;
+                        }
+                    });
+                },
+
+                sortOutboundFlights() {
+                    this.flights.sort((a, b) => {
+                        let aVal = a[this.outboundSortBy];
+                        let bVal = b[this.outboundSortBy];
+
+                        if (this.outboundSortBy === 'price') {
+                            aVal = parseFloat(a.price_total);
+                            bVal = parseFloat(b.price_total);
+                        } else if (this.outboundSortBy === 'departure_time') {
+                            aVal = new Date(a.departure_time);
+                            bVal = new Date(b.departure_time);
+                        } else if (this.outboundSortBy === 'duration') {
+                            aVal = a.total_duration_minutes || 0;
+                            bVal = b.total_duration_minutes || 0;
+                        } else if (this.outboundSortBy === 'stops') {
+                            aVal = a.outbound_stops || 0;
+                            bVal = b.outbound_stops || 0;
+                        } else if (this.outboundSortBy === 'airline_name') {
+                            aVal = a.airline_name || '';
+                            bVal = b.airline_name || '';
+                        }
+
+                        if (this.outboundSortDirection === 'asc') {
+                            return aVal > bVal ? 1 : -1;
+                        } else {
+                            return aVal < bVal ? 1 : -1;
+                        }
+                    });
+                },
+
+                sortReturnFlights() {
+                    this.flights.sort((a, b) => {
+                        let aVal = a[this.returnSortBy];
+                        let bVal = b[this.returnSortBy];
+
+                        if (this.returnSortBy === 'price') {
+                            aVal = parseFloat(a.price_total);
+                            bVal = parseFloat(b.price_total);
+                        } else if (this.returnSortBy === 'departure_time') {
+                            aVal = new Date(a.departure_time);
+                            bVal = new Date(b.departure_time);
+                        } else if (this.returnSortBy === 'duration') {
+                            aVal = a.total_duration_minutes || 0;
+                            bVal = b.total_duration_minutes || 0;
+                        } else if (this.returnSortBy === 'stops') {
+                            aVal = a.return_stops || 0;
+                            bVal = b.return_stops || 0;
+                        } else if (this.returnSortBy === 'airline_name') {
+                            aVal = a.airline_name || '';
+                            bVal = b.airline_name || '';
+                        }
+
+                        if (this.returnSortDirection === 'asc') {
+                            return aVal > bVal ? 1 : -1;
+                        } else {
+                            return aVal < bVal ? 1 : -1;
+                        }
+                    });
+                },
+
+                toggleOutboundSortDirection() {
+                    this.outboundSortDirection = this.outboundSortDirection === 'asc' ? 'desc' : 'asc';
+                    this.sortOutboundFlights();
+                },
+
+                toggleReturnSortDirection() {
+                    this.returnSortDirection = this.returnSortDirection === 'asc' ? 'desc' : 'asc';
+                    this.sortReturnFlights();
+                },
+
+                // One-way sorting functions
+                sortOutboundOneWayFlights() {
+                    this.outboundOneWayFlights.sort((a, b) => {
+                        let aVal = a[this.outboundOneWaySortBy];
+                        let bVal = b[this.outboundOneWaySortBy];
+
+                        if (this.outboundOneWaySortBy === 'price') {
+                            aVal = parseFloat(a.price_total);
+                            bVal = parseFloat(b.price_total);
+                        } else if (this.outboundOneWaySortBy === 'departure_time') {
+                            aVal = new Date(a.departure_time);
+                            bVal = new Date(b.departure_time);
+                        } else if (this.outboundOneWaySortBy === 'duration') {
+                            aVal = a.duration_minutes || 0;
+                            bVal = b.duration_minutes || 0;
+                        } else if (this.outboundOneWaySortBy === 'stops') {
+                            aVal = a.stops || 0;
+                            bVal = b.stops || 0;
+                        } else if (this.outboundOneWaySortBy === 'airline_name') {
+                            aVal = a.airline_name || '';
+                            bVal = b.airline_name || '';
+                        }
+
+                        if (this.outboundOneWaySortDirection === 'asc') {
+                            return aVal > bVal ? 1 : -1;
+                        } else {
+                            return aVal < bVal ? 1 : -1;
+                        }
+                    });
+                },
+
+                sortReturnOneWayFlights() {
+                    this.returnOneWayFlights.sort((a, b) => {
+                        let aVal = a[this.returnOneWaySortBy];
+                        let bVal = b[this.returnOneWaySortBy];
+
+                        if (this.returnOneWaySortBy === 'price') {
+                            aVal = parseFloat(a.price_total);
+                            bVal = parseFloat(b.price_total);
+                        } else if (this.returnOneWaySortBy === 'departure_time') {
+                            aVal = new Date(a.departure_time);
+                            bVal = new Date(b.departure_time);
+                        } else if (this.returnOneWaySortBy === 'duration') {
+                            aVal = a.duration_minutes || 0;
+                            bVal = b.duration_minutes || 0;
+                        } else if (this.returnOneWaySortBy === 'stops') {
+                            aVal = a.stops || 0;
+                            bVal = b.stops || 0;
+                        } else if (this.returnOneWaySortBy === 'airline_name') {
+                            aVal = a.airline_name || '';
+                            bVal = b.airline_name || '';
+                        }
+
+                        if (this.returnOneWaySortDirection === 'asc') {
+                            return aVal > bVal ? 1 : -1;
+                        } else {
+                            return aVal < bVal ? 1 : -1;
+                        }
+                    });
+                },
+
+                toggleOutboundOneWaySortDirection() {
+                    this.outboundOneWaySortDirection = this.outboundOneWaySortDirection === 'asc' ? 'desc' : 'asc';
+                    this.sortOutboundOneWayFlights();
+                },
+
+                toggleReturnOneWaySortDirection() {
+                    this.returnOneWaySortDirection = this.returnOneWaySortDirection === 'asc' ? 'desc' : 'asc';
+                    this.sortReturnOneWayFlights();
+                },
+
+                selectFlight(flight) {
+                    this.selectedRoundTripFlight = flight;
+                },
+
+                isFlightSelected(flight) {
+                    return this.selectedRoundTripFlight?.id === flight.id;
+                },
+
+                // Round-trip flight selection
+                selectRoundTripFlight(flight) {
+                    this.selectedRoundTripFlight = flight;
+                    this.updateBestOption();
+                },
+
+                isRoundTripSelected(flight) {
+                    return this.selectedRoundTripFlight?.id === flight.id;
+                },
+
+                // One-way outbound flight selection
+                selectOutboundOneWayFlight(flight) {
+                    this.selectedOutboundOneWayFlight = flight;
+                    this.updateBestOption();
+                },
+
+                isOutboundOneWaySelected(flight) {
+                    return this.selectedOutboundOneWayFlight?.id === flight.id;
+                },
+
+                // One-way return flight selection
+                selectReturnOneWayFlight(flight) {
+                    this.selectedReturnOneWayFlight = flight;
+                    this.updateBestOption();
+                },
+
+                isReturnOneWaySelected(flight) {
+                    return this.selectedReturnOneWayFlight?.id === flight.id;
+                },
+
+                // Comparison logic
+                updateBestOption() {
+                    const options = [];
+
+                    // Round-trip option
+                    if (this.selectedRoundTripFlight) {
+                        options.push({
+                            type: 'Round-Trip',
+                            totalPrice: this.selectedRoundTripFlight.price_total,
+                            duration: this.selectedRoundTripFlight.duration_minutes,
+                            stops: this.selectedRoundTripFlight.stops,
+                            flights: [this.selectedRoundTripFlight],
+                            value: this.calculateValue(this.selectedRoundTripFlight.price_total, this.selectedRoundTripFlight.duration_minutes, this.selectedRoundTripFlight.stops)
+                        });
+                    }
+
+                    // One-way package option
+                    if (this.selectedOutboundOneWayFlight && this.selectedReturnOneWayFlight) {
+                        const totalPrice = this.selectedOutboundOneWayFlight.price_total + this.selectedReturnOneWayFlight.price_total;
+                        const totalDuration = this.selectedOutboundOneWayFlight.duration_minutes + this.selectedReturnOneWayFlight.duration_minutes;
+                        const totalStops = this.selectedOutboundOneWayFlight.stops + this.selectedReturnOneWayFlight.stops;
+                        
+                        options.push({
+                            type: 'One-Way Package',
+                            totalPrice: totalPrice,
+                            duration: totalDuration,
+                            stops: totalStops,
+                            flights: [this.selectedOutboundOneWayFlight, this.selectedReturnOneWayFlight],
+                            value: this.calculateValue(totalPrice, totalDuration, totalStops)
+                        });
+                    }
+
+                    if (options.length === 0) {
+                        this.bestOption = null;
+                        return;
+                    }
+
+                    // Determine best option based on criteria
+                    let best = options[0];
+                    for (let option of options) {
+                        if (this.comparisonCriteria === 'price' && option.totalPrice < best.totalPrice) {
+                            best = option;
+                        } else if (this.comparisonCriteria === 'duration' && option.duration < best.duration) {
+                            best = option;
+                        } else if (this.comparisonCriteria === 'stops' && option.stops < best.stops) {
+                            best = option;
+                        } else if (this.comparisonCriteria === 'value' && option.value > best.value) {
+                            best = option;
+                        }
+                    }
+
+                    // Calculate savings
+                    const otherOptions = options.filter(opt => opt.type !== best.type);
+                    const highestPrice = Math.max(...options.map(opt => opt.totalPrice));
+                    best.savings = highestPrice - best.totalPrice;
+
+                    this.bestOption = best;
+                },
+
+                calculateValue(price, duration, stops) {
+                    // Simple value calculation: lower price, duration, and stops = higher value
+                    const priceScore = Math.max(0, 1000 - price);
+                    const durationScore = Math.max(0, 1000 - duration);
+                    const stopsScore = Math.max(0, 100 - stops * 50);
+                    return (priceScore + durationScore + stopsScore) / 3;
+                },
+
+                bookBestOption() {
+                    if (this.bestOption && this.bestOption.flights.length > 0) {
+                        this.bestOption.flights.forEach((flight, index) => {
+                            setTimeout(() => {
+                                window.open(flight.booking_url || `https://www.google.com/search?q=${flight.airline_code}+flight+booking`, '_blank');
+                            }, index * 500);
+                        });
+                    }
+                },
+
+                saveBestOption() {
+                    if (this.bestOption) {
+                        const comparisonData = {
+                            bestOption: this.bestOption,
+                            comparisonCriteria: this.comparisonCriteria,
+                            searchParams: this.searchForm,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        const savedComparisons = JSON.parse(localStorage.getItem('savedComparisons') || '[]');
+                        savedComparisons.push(comparisonData);
+                        localStorage.setItem('savedComparisons', JSON.stringify(savedComparisons));
+                        
+                        alert('Comparison saved successfully!');
+                    }
+                },
+
+                saveFlight(flight) {
+                    if (flight) {
+                        const flightData = {
+                            flight: flight,
+                            total_cost: flight.price_total,
+                            search_date: new Date().toISOString(),
+                            route: `${this.searchForm.origin}-${this.searchForm.destination}`,
+                            trip_type: this.searchForm.return_date ? 'round-trip' : 'one-way'
+                        };
+                        
+                        const savedFlights = JSON.parse(localStorage.getItem('savedFlights') || '[]');
+                        savedFlights.push(flightData);
+                        localStorage.setItem('savedFlights', JSON.stringify(savedFlights));
+                        
+                        alert('Flight saved successfully!');
+                    }
+                },
+
+                storeSearchHistory() {
+                    const search = {
+                        route: `${this.searchForm.origin} → ${this.searchForm.destination}`,
+                        date: new Date().toLocaleString(),
+                        results: this.flights.length,
+                        criteria: { ...this.searchForm }
+                    };
+                    
+                    this.searchHistory.unshift(search);
+                    if (this.searchHistory.length > 10) {
+                        this.searchHistory.pop();
+                    }
+                    
+                    localStorage.setItem('flightSearchHistory', JSON.stringify(this.searchHistory));
+                },
+
+                storePriceData() {
+                    const route = `${this.searchForm.origin}-${this.searchForm.destination}`;
+                    const date = new Date().toISOString().split('T')[0];
+                    
+                    if (!this.priceData.has(route)) {
+                        this.priceData.set(route, []);
+                    }
+                    
+                    const routeData = this.priceData.get(route);
+                    const priceEntry = {
+                        date: date,
+                        search_time: new Date().toISOString(),
+                        flights: this.flights.map(f => ({
+                            airline: f.airline_code,
+                            airline_name: f.airline_name,
+                            price: f.price_total,
+                            duration: this.parseDuration(f.outbound_segments[0]?.duration || 'PT0M'),
+                            route: f.origin + '-' + f.destination
+                        }))
+                    };
+                    
+                    routeData.push(priceEntry);
+                    
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    
+                    this.priceData.set(route, routeData.filter(entry => 
+                        new Date(entry.date) >= thirtyDaysAgo
+                    ));
+                    
+                    const serializedData = {};
+                    for (let [key, value] of this.priceData) {
+                        serializedData[key] = value;
+                    }
+                    localStorage.setItem('flightPriceData', JSON.stringify(serializedData));
+                },
+
+                showFlightDetailsModal(flight) {
+                    if (flight) {
+                        this.selectedRoundTripFlightDetails = flight;
+                        this.showFlightDetails = true;
+                    }
+                },
+
+                showPackageDetails() {
+                    const packageDetails = {
+                        id: 'package_' + Date.now(),
+                        airline_code: `${this.selectedOutboundFlight.airline_code} + ${this.selectedReturnFlight.airline_code}`,
+                        airline_name: `${this.selectedOutboundFlight.airline_name} & ${this.selectedReturnFlight.airline_name}`,
+                        origin: this.selectedOutboundFlight.origin,
+                        destination: this.selectedOutboundFlight.destination,
+                        departure_time: this.selectedOutboundFlight.departure_time,
+                        arrival_time: this.selectedReturnFlight.arrival_time,
+                        price_total: this.selectedOutboundFlight.price_total + this.selectedReturnFlight.price_total,
+                        currency: this.selectedOutboundFlight.currency,
+                        cabin_class: this.selectedOutboundFlight.cabin_class,
+                        stops: Math.max(this.selectedOutboundFlight.stops, this.selectedReturnFlight.stops),
+                        duration: this.calculatePackageDuration(),
+                        outbound_segments: this.selectedOutboundFlight.outbound_segments,
+                        return_segments: this.selectedReturnFlight.return_segments,
+                        search_timestamp: new Date().toISOString(),
+                        isPackage: true
+                    };
+                    
+                    this.selectedRoundTripFlightDetails = packageDetails;
+                    this.showFlightDetails = true;
+                },
+
+                calculatePackageDuration() {
+                    if (!this.selectedOutboundFlight || !this.selectedReturnFlight) return '';
+                    
+                    const outboundDuration = this.parseDuration(this.selectedOutboundFlight.duration);
+                    const returnDuration = this.parseDuration(this.selectedReturnFlight.duration);
+                    
+                    const totalMinutes = outboundDuration + returnDuration;
+                    return this.formatDuration(totalMinutes);
+                },
+
+                bookFlight(flight) {
+                    window.open(`https://www.google.com/search?q=${flight.airline_code}+flight+booking`, '_blank');
+                },
+
+                bookPackage() {
+                    if (this.selectedOutboundFlight && this.selectedReturnFlight) {
+                        const outboundUrl = `https://www.google.com/search?q=${this.selectedOutboundFlight.airline_code}+flight+booking`;
+                        const returnUrl = `https://www.google.com/search?q=${this.selectedReturnFlight.airline_code}+flight+booking`;
+                        
+                        window.open(outboundUrl, '_blank');
+                        setTimeout(() => window.open(returnUrl, '_blank'), 500);
+                    }
+                },
+
+                savePackage() {
+                    if (this.selectedOutboundFlight && this.selectedReturnFlight) {
+                        const packageData = {
+                            outbound: this.selectedOutboundFlight,
+                            return: this.selectedReturnFlight,
+                            total_cost: this.selectedOutboundFlight.price_total + this.selectedReturnFlight.price_total,
+                            search_date: new Date().toISOString(),
+                            route: `${this.searchForm.origin}-${this.searchForm.destination}`
+                        };
+                        
+                        const savedPackages = JSON.parse(localStorage.getItem('savedPackages') || '[]');
+                        savedPackages.push(packageData);
+                        localStorage.setItem('savedPackages', JSON.stringify(savedPackages));
+                        
+                        alert('Package saved successfully!');
+                    }
+                },
+
+                init() {
+                    // Ensure all modal states are false on initialization
+                    this.showFlightDetails = false;
+                    this.showPriceHistory = false;
+                    this.showFlightHistoryModal = false;
+                    this.selectedRoundTripFlightDetails = null;
+                    this.selectedRoundTripFlightHistory = null;
+                    this.selectedRoundTripFlight = null;
+                    this.selectedRoundTripFlight = null;
+                    this.selectedOutboundOneWayFlight = null;
+                    this.selectedReturnOneWayFlight = null;
+                    
+                    // Force close any open modals
+                    setTimeout(() => {
+                        this.showFlightDetails = false;
+                        this.selectedRoundTripFlightDetails = null;
+                        this.showPriceHistory = false;
+                        this.showFlightHistoryModal = false;
+                    }, 100);
+                    
+                    // Load stored data
+                    const storedHistory = localStorage.getItem('flightSearchHistory');
+                    if (storedHistory) {
+                        this.searchHistory = JSON.parse(storedHistory);
+                    }
+                    
+                    const storedPriceData = localStorage.getItem('flightPriceData');
+                    if (storedPriceData) {
+                        const data = JSON.parse(storedPriceData);
+                        this.priceData = new Map(Object.entries(data));
+                    }
+                    
+                    // Set default return date (7 days from departure)
+                    const departureDate = new Date(this.searchForm.departure_date);
+                    departureDate.setDate(departureDate.getDate() + 7);
+                    this.searchForm.return_date = departureDate.toISOString().split('T')[0];
+                }
+            }
+        }
+    </script>
+</body>
+</html>
