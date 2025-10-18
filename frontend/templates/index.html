@@ -450,153 +450,92 @@
         </div>
 
         <!-- Package Summary - Fixed at Bottom -->
-        <div class="compact-card rounded-lg p-3 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 h-[120px]">
-                <h3 class="text-sm font-bold text-gray-800 mb-2 flex items-center">
-                    <i class="fas fa-shopping-cart mr-2 text-purple-600"></i>
+        <div class="compact-card rounded-lg p-2 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 h-[80px]">
+                <h3 class="text-xs font-bold text-gray-800 mb-1 flex items-center">
+                    <i class="fas fa-shopping-cart mr-1 text-purple-600"></i>
                     Package Summary
                 </h3>
                 
                 <!-- No Selection State -->
-                <div x-show="!selectedRoundTripFlight && (!selectedOutboundOneWayFlight || !selectedReturnOneWayFlight)" class="text-center py-2 text-gray-500">
-                    <i class="fas fa-mouse-pointer text-lg mb-1"></i>
+                <div x-show="!selectedRoundTripFlight && (!selectedOutboundOneWayFlight || !selectedReturnOneWayFlight)" class="text-center py-1 text-gray-500">
+                    <i class="fas fa-mouse-pointer text-sm"></i>
                     <p class="text-xs">Select flights to see package details</p>
                 </div>
 
                 <!-- Round-Trip Package Summary -->
-                <div x-show="selectedRoundTripFlight && searchForm.return_date" class="space-y-1 h-[80px]">
-                    <!-- Selected Round-Trip Flight -->
-                    <div class="bg-white rounded-lg p-2 border border-purple-200 cursor-pointer hover:border-purple-400 transition-colors"
-                         @click="showFlightDetailsModal(selectedRoundTripFlight)">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium text-purple-600">Selected Round-Trip Flight</span>
-                            <div class="flex space-x-2">
-                                <button @click.stop="showFlightDetailsModal(selectedRoundTripFlight)" class="text-purple-500 hover:text-purple-700 text-sm" title="View Details">
-                                    <i class="fas fa-info-circle"></i>
-                                </button>
-                                <button @click.stop="selectedRoundTripFlight = null" class="text-gray-400 hover:text-gray-600 text-sm">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                <div x-show="selectedRoundTripFlight && searchForm.return_date" class="h-[60px]">
+                    <!-- Compact Flight Info and Actions -->
+                    <div class="flex items-center justify-between h-full">
+                        <!-- Flight Details -->
+                        <div class="flex-1 bg-white rounded p-2 border border-purple-200 mr-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <div class="text-xs font-medium text-purple-600" x-text="selectedRoundTripFlight?.airline_name"></div>
+                                    <div class="text-xs text-gray-600" x-text="selectedRoundTripFlight?.departure_time + ' - ' + selectedRoundTripFlight?.arrival_time"></div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-bold text-purple-600" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></div>
+                                    <div class="text-xs text-gray-500" x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + '/person'"></div>
+                                </div>
                             </div>
                         </div>
-                        <div class="text-sm space-y-1">
-                            <div class="font-medium" x-text="selectedRoundTripFlight?.airline_name"></div>
-                            <div class="text-gray-600" x-text="selectedRoundTripFlight?.departure_time + ' - ' + selectedRoundTripFlight?.arrival_time"></div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-purple-600 font-bold text-lg" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></span>
-                                <span class="text-gray-500 text-xs" x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + ' per person'"></span>
-                            </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex space-x-1">
+                            <button @click="showFlightDetailsModal(selectedRoundTripFlight)" 
+                                    class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors" title="View Details">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button @click="bookFlight(selectedRoundTripFlight)" 
+                                    class="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors" title="Book Flight">
+                                <i class="fas fa-shopping-cart"></i>
+                            </button>
+                            <button @click="saveFlight(selectedRoundTripFlight)" 
+                                    class="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors" title="Save Flight">
+                                <i class="fas fa-bookmark"></i>
+                            </button>
+                            <button @click="selectedRoundTripFlight = null" 
+                                    class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors" title="Remove">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
-                    </div>
-
-                    <!-- Total Cost -->
-                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg p-3">
-                        <div class="text-center">
-                            <div class="text-xs opacity-90">Complete Round-Trip Cost</div>
-                            <div class="text-xl font-bold" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></div>
-                            <div class="text-xs opacity-75 mt-1">
-                                <span x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + ' per person × ' + searchForm.adults + ' passenger' + (searchForm.adults > 1 ? 's' : '')"></span>
-                            </div>
-                            <div class="text-xs opacity-60 mt-1">
-                                <span>Includes outbound + return flights</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="space-y-2">
-                        <button @click="showFlightDetailsModal(selectedRoundTripFlight)" 
-                                class="w-full compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-info-circle mr-1"></i>View Flight Details
-                        </button>
-                        <button @click="bookFlight(selectedRoundTripFlight)" 
-                                class="w-full compact-button bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                            <i class="fas fa-shopping-cart mr-1"></i>Book Flight
-                        </button>
-                        <button @click="saveFlight(selectedRoundTripFlight)" 
-                                class="w-full compact-button bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                            <i class="fas fa-bookmark mr-1"></i>Save Flight
-                        </button>
                     </div>
                 </div>
 
                 <!-- One-Way Package Summary -->
-                <div x-show="selectedOutboundOneWayFlight && selectedReturnOneWayFlight && !selectedRoundTripFlight" class="space-y-1 h-[80px]">
-                    <!-- Selected Outbound Flight -->
-                    <div class="bg-white rounded-lg p-2 border border-blue-200 cursor-pointer hover:border-blue-400 transition-colors"
-                         @click="showFlightDetailsModal(selectedOutboundOneWayFlight)">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium text-blue-600">Outbound Flight</span>
-                            <div class="flex space-x-2">
-                                <button @click.stop="showFlightDetailsModal(selectedOutboundOneWayFlight)" class="text-blue-500 hover:text-blue-700 text-sm" title="View Details">
-                                    <i class="fas fa-info-circle"></i>
-                                </button>
-                                <button @click.stop="selectedOutboundOneWayFlight = null" class="text-gray-400 hover:text-gray-600 text-sm">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                <div x-show="selectedOutboundOneWayFlight && selectedReturnOneWayFlight && !selectedRoundTripFlight" class="h-[60px]">
+                    <!-- Compact One-Way Package Layout -->
+                    <div class="flex items-center justify-between h-full">
+                        <!-- Outbound Flight -->
+                        <div class="flex-1 bg-white rounded p-1 border border-blue-200 mr-1">
+                            <div class="text-xs font-medium text-blue-600">Outbound</div>
+                            <div class="text-xs text-gray-600" x-text="selectedOutboundOneWayFlight?.airline_name"></div>
+                            <div class="text-xs font-bold text-blue-600" x-text="'$' + selectedOutboundOneWayFlight?.price_total.toLocaleString()"></div>
+                        </div>
+                        
+                        <!-- Return Flight -->
+                        <div class="flex-1 bg-white rounded p-1 border border-green-200 mr-2">
+                            <div class="text-xs font-medium text-green-600">Return</div>
+                            <div class="text-xs text-gray-600" x-text="selectedReturnOneWayFlight?.airline_name"></div>
+                            <div class="text-xs font-bold text-green-600" x-text="'$' + selectedReturnOneWayFlight?.price_total.toLocaleString()"></div>
+                        </div>
+                        
+                        <!-- Total and Actions -->
+                        <div class="flex items-center space-x-1">
+                            <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded p-1 border border-gray-200">
+                                <div class="text-xs text-gray-700">Total</div>
+                                <div class="text-sm font-bold text-purple-600" x-text="'$' + ((selectedOutboundOneWayFlight?.price_total || 0) + (selectedReturnOneWayFlight?.price_total || 0)).toLocaleString()"></div>
                             </div>
+                            
+                            <button @click="showFlightDetailsModal(selectedOutboundOneWayFlight)" 
+                                    class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors" title="View Details">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button @click="bookFlight({outbound: selectedOutboundOneWayFlight, return: selectedReturnOneWayFlight})" 
+                                    class="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors" title="Book Package">
+                                <i class="fas fa-shopping-cart"></i>
+                            </button>
                         </div>
-                        <div class="text-sm space-y-1">
-                            <div class="font-medium" x-text="selectedOutboundOneWayFlight?.airline_name"></div>
-                            <div class="text-gray-600" x-text="selectedOutboundOneWayFlight?.departure_time + ' - ' + selectedOutboundOneWayFlight?.arrival_time"></div>
-                            <div class="text-blue-600 font-bold" x-text="'$' + selectedOutboundOneWayFlight?.price_total.toLocaleString()"></div>
-                        </div>
-                    </div>
-
-                    <!-- Selected Return Flight -->
-                    <div class="bg-white rounded-lg p-2 border border-green-200 cursor-pointer hover:border-green-400 transition-colors"
-                         @click="showFlightDetailsModal(selectedReturnOneWayFlight)">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium text-green-600">Return Flight</span>
-                            <div class="flex space-x-2">
-                                <button @click.stop="showFlightDetailsModal(selectedReturnOneWayFlight)" class="text-green-500 hover:text-green-700 text-sm" title="View Details">
-                                    <i class="fas fa-info-circle"></i>
-                                </button>
-                                <button @click.stop="selectedReturnOneWayFlight = null" class="text-gray-400 hover:text-gray-600 text-sm">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="text-sm space-y-1">
-                            <div class="font-medium" x-text="selectedReturnOneWayFlight?.airline_name"></div>
-                            <div class="text-gray-600" x-text="selectedReturnOneWayFlight?.departure_time + ' - ' + selectedReturnOneWayFlight?.arrival_time"></div>
-                            <div class="text-green-600 font-bold" x-text="'$' + selectedReturnOneWayFlight?.price_total.toLocaleString()"></div>
-                        </div>
-                    </div>
-
-                    <!-- Package Total -->
-                    <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-2 border border-blue-200">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm font-medium text-gray-700">Package Total:</span>
-                            <span class="text-lg font-bold text-purple-600" x-text="'$' + ((selectedOutboundOneWayFlight?.price_total || 0) + (selectedReturnOneWayFlight?.price_total || 0)).toLocaleString()"></span>
-                        </div>
-                        <div class="text-xs text-gray-500 text-right" x-text="'$' + (((selectedOutboundOneWayFlight?.price_total || 0) + (selectedReturnOneWayFlight?.price_total || 0)) / searchForm.adults).toFixed(2) + ' per person'"></div>
-                    </div>
-
-                    <!-- Total Cost -->
-                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg p-3">
-                        <div class="text-center">
-                            <div class="text-xs opacity-90">One-Way Flight Cost</div>
-                            <div class="text-xl font-bold" x-text="'$' + selectedRoundTripFlight?.price_total.toLocaleString()"></div>
-                            <div class="text-xs opacity-75 mt-1">
-                                <span x-text="'$' + (selectedRoundTripFlight?.price_total / searchForm.adults).toFixed(2) + ' per person × ' + searchForm.adults + ' passenger' + (searchForm.adults > 1 ? 's' : '')"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="space-y-2">
-                        <button @click="showFlightDetailsModal(selectedRoundTripFlight)" 
-                                class="w-full compact-button bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-info-circle mr-1"></i>View Flight Details
-                        </button>
-                        <button @click="bookFlight(selectedRoundTripFlight)" 
-                                class="w-full compact-button bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                            <i class="fas fa-shopping-cart mr-1"></i>Book Flight
-                        </button>
-                        <button @click="saveFlight(selectedRoundTripFlight)" 
-                                class="w-full compact-button bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                            <i class="fas fa-bookmark mr-1"></i>Save Flight
-                        </button>
                     </div>
                 </div>
             </div>
@@ -1131,7 +1070,7 @@
                 },
 
                 sortOutboundFlights() {
-                    this.flights.sort((a, b) => {
+                    this.roundTripFlights.sort((a, b) => {
                         let aVal = a[this.outboundSortBy];
                         let bVal = b[this.outboundSortBy];
 
